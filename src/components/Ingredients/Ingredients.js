@@ -44,12 +44,16 @@ const Ingredients = () => {
   };
 
   const removeIngredientHandler = id => {
-    setIngredients(prevIngredients =>
-      // prevIngredients.filter(function(value, index, arr) {
-      prevIngredients.filter(function(ingredient) {
-        return ingredient.id !== id;
-      })
-    );
+    fetch(`https://react-hooks-23a01.firebaseio.com/ingredients/${id}.json`, {
+      method: "DELETE"
+    }).then(response => {
+      setIngredients(prevIngredients =>
+        // prevIngredients.filter(function(value, index, arr) {
+        prevIngredients.filter(function(ingredient) {
+          return ingredient.id !== id;
+        })
+      );
+    });
   };
 
   return (
