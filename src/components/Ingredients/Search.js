@@ -17,7 +17,7 @@ const Search = React.memo(props => {
   useEffect(() => {
     // We want to look for values if the user has stopped writing, not for every key stroke.
     // So with timeOut, if you stop writing for 1 second, we assume you stop searching
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       // enteredFilter will be locked in when we setTimeout, so it will not be the current one
       // it will be the "old" one.
       // To get the current value, we use a reference.
@@ -44,6 +44,11 @@ const Search = React.memo(props => {
           });
       }
     }, 1000);
+
+    // useEffect cleanup function
+    return () => {
+      clearTimeout(timer);
+    };
 
     // This will be exec, every time enteredFilter changes.
     // Or when onLoadIngredients changes. It is a function, it can change.. but it should not.
