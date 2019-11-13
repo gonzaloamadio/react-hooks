@@ -8,12 +8,20 @@ const Ingredients = () => {
   const [ingredients, setIngredients] = useState([]);
 
   const addIngredientHandler = ingr => {
-    // setIngredients(prevIngredients => [...prevIngredients, ingr])
-    // For now, create dummy id, then will be brought from server.
-    setIngredients(prevIngredients => [
-      ...prevIngredients,
-      { id: Math.random().toString(), ...ingr }
-    ]);
+    fetch("https://react-hooks-23a01.firebaseio.com/ingredients.json", {
+      method: "POST",
+      body: JSON.stringify(ingr),
+      headers: { "Content-Type": "application/json" }
+    })
+      .then(response => {
+        return response.json();
+      })
+      .then(responseData => {
+        setIngredients(prevIngredients => [
+          ...prevIngredients,
+          { id: responseData.name, ...ingr } // id is name because of Firebase
+        ]);
+      });
   };
 
   const removeIngredientHandler = id => {
