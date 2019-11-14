@@ -2,10 +2,13 @@ import React, { useState, useCallback } from "react";
 
 import IngredientForm from "./IngredientForm";
 import IngredientList from "./IngredientList";
+import ErrorModal from "../UI/ErrorModal";
 import Search from "./Search";
 
 const Ingredients = () => {
   const [ingredients, setIngredients] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState();
 
   // We do not need this on first renderd. Search will do it.
   // If we leave it, we will have to http requests on component startup.
@@ -27,12 +30,14 @@ const Ingredients = () => {
   }, []);
 
   const addIngredientHandler = ingr => {
+    setIsLoading(true);
     fetch("https://react-hooks-23a01.firebaseio.com/ingredients.json", {
       method: "POST",
       body: JSON.stringify(ingr),
       headers: { "Content-Type": "application/json" }
     })
       .then(response => {
+        setIsLoading(false);
         return response.json();
       })
       .then(responseData => {
@@ -40,25 +45,44 @@ const Ingredients = () => {
           ...prevIngredients,
           { id: responseData.name, ...ingr } // id is name because of Firebase
         ]);
+      })
+      .catch(error => {
+        setError(error.message);
       });
   };
 
   const removeIngredientHandler = id => {
+    setIsLoading(true);
     fetch(`https://react-hooks-23a01.firebaseio.com/ingredients/${id}.json`, {
       method: "DELETE"
-    }).then(response => {
-      setIngredients(prevIngredients =>
-        // prevIngredients.filter(function(value, index, arr) {
-        prevIngredients.filter(function(ingredient) {
-          return ingredient.id !== id;
-        })
-      );
-    });
+    })
+      .then(response => {
+        setIsLoading(false);
+        setIngredients(prevIngredients =>
+          // prevIngredients.filter(function(value, index, arr) {
+          prevIngredients.filter(function(ingredient) {
+            return ingredient.id !== id;
+          })
+        );
+      })
+      .catch(error => {
+        setError(error.message);
+      });
+  };
+
+  const clearError = () => {
+    setIsLoading(false);
+    setError(null);
   };
 
   return (
     <div className="App">
-      <IngredientForm onAddIngredient={addIngredientHandler} />
+      {error && <ErrorModal onClose={clearError}>{error}</ErrorModal>}
+
+      <IngredientForm
+        onAddIngredient={addIngredientHandler}
+        loading={isLoading}
+      />
 
       <section>
         <Search onLoadIngredients={filterIngredientsHandler} />
