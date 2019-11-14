@@ -1,12 +1,26 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useReducer, useCallback } from "react";
 
 import IngredientForm from "./IngredientForm";
 import IngredientList from "./IngredientList";
 import ErrorModal from "../UI/ErrorModal";
 import Search from "./Search";
 
+const ingredientReducer = (currentIngredients, action) => {
+  switch (action.type) {
+    case "SET":
+      return action.ingredients;
+    case "ADD":
+      return [...currentIngredients, action.ingredient];
+    case "DELETE":
+      return currentIngredients.filter(ing => ing.id !== action.id);
+    default:
+      throw new Error("Should not arrive here.");
+  }
+};
+
 const Ingredients = () => {
-  const [ingredients, setIngredients] = useState([]);
+  const [ingredients, dispatch] = useReducer(ingredientReducer, []);
+  // const [ingredients, setIngredients] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState();
 
@@ -25,8 +39,8 @@ const Ingredients = () => {
   // This function is on a dependency array of useEffect on Search component,
   // and will cause a search of ingredients, and re render this one. So an infinite loop
   // With useCallback, this function is cached, preventing this.
-  const filterIngredientsHandler = useCallback(filterIngredients => {
-    setIngredients(filterIngredients);
+  const filterIngredientsHandler = useCallback(filteredIngredients => {
+    dispatch({ type: "SET", ingredients: filteredIngredients });
   }, []);
 
   const addIngredientHandler = ingr => {
@@ -41,10 +55,14 @@ const Ingredients = () => {
         return response.json();
       })
       .then(responseData => {
-        setIngredients(prevIngredients => [
-          ...prevIngredients,
-          { id: responseData.name, ...ingr } // id is name because of Firebase
-        ]);
+        // setIngredients(prevIngredients => [
+        //   ...prevIngredients,
+        //   { id: responseData.name, ...ingr } // id is name because of Firebase
+        // ]);
+        dispatch({
+          type: "ADD",
+          ingredient: { id: responseData.name, ...ingr }
+        });
       })
       .catch(error => {
         setError(error.message);
@@ -58,12 +76,13 @@ const Ingredients = () => {
     })
       .then(response => {
         setIsLoading(false);
-        setIngredients(prevIngredients =>
-          // prevIngredients.filter(function(value, index, arr) {
-          prevIngredients.filter(function(ingredient) {
-            return ingredient.id !== id;
-          })
-        );
+        // setIngredients(prevIngredients =>
+        //   // prevIngredients.filter(function(value, index, arr) {
+        //   prevIngredients.filter(function(ingredient) {
+        //     return ingredient.id !== id;
+        //   })
+        // );
+        dispatch({ type: "DELETE", id });
       })
       .catch(error => {
         setError(error.message);
