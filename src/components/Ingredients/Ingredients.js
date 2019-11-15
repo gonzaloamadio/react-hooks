@@ -1,9 +1,10 @@
-import React, { useReducer, useCallback, useMemo } from "react";
+import React, { useReducer, useCallback, useMemo, useEffect } from "react";
 
 import IngredientForm from "./IngredientForm";
 import IngredientList from "./IngredientList";
 import ErrorModal from "../UI/ErrorModal";
 import Search from "./Search";
+import useHttp from "../../hooks/http";
 
 // currentIngredients is the "old" state
 const ingredientReducer = (currentIngredients, action) => {
@@ -19,49 +20,28 @@ const ingredientReducer = (currentIngredients, action) => {
   }
 };
 
-const httpReducer = (currentHttpState, action) => {
-  switch (action.type) {
-    // We want to manage the state related with a http send request.
-    // And it is, showing a spinner or an error
-    case "SEND":
-      return { isLoading: true, error: null };
-    case "RESPONSE":
-      return { ...currentHttpState, isLoading: false };
-    case "ERROR":
-      return {
-        ...currentHttpState,
-        isLoading: false,
-        error: action.errorMessage
-      };
-    case "CLEAR":
-      return { ...currentHttpState, error: null, isLoading: false };
-    default:
-      throw new Error("Should not arrive here.");
-  }
-};
-
 const Ingredients = () => {
   // In this case we useReducer to manage multiple updates in one place, the reducer.
   const [ingredients, dispatch] = useReducer(ingredientReducer, []);
-  // In this case we useReducer to manage multiple connected field.
-  const [httpState, dispatchHttp] = useReducer(httpReducer, {
-    isLoading: false,
-    error: null
-  });
+  const {
+    isLoading,
+    error,
+    data,
+    sendRequest,
+    extra,
+    reqIdentifier,
+    clear
+  } = useHttp();
 
-  // const [ingredients, setIngredients] = useState([]);
-  // const [isLoading, setIsLoading] = useState(false);
-  // const [error, setError] = useState();
-
-  // We do not need this on first renderd. Search will do it.
-  // If we leave it, we will have to http requests on component startup.
-  //
-  // useEffect(() => {
-  //   fetch("https://react-hooks-23a01.firebaseio.com/ingredients.json")
-  //      ...
-  //       setIngredients(loadedIngredients);
-  //     });
-  // }, []);
+  // Remember that this is exec after the render. So we have to be sure that the
+  // data we use, is not null. For example checking that it is not in loading state.
+  useEffect(() => {
+    if (!isLoading && !error && reqIdentifier === "REMOVE_INGREDIENT") {
+      dispatch({ type: "DELETE", id: extra });
+    } else if (!isLoading && !error && reqIdentifier === "ADD_INGREDIENT") {
+      dispatch({ type: "ADD", ingredient: { id: data.name, ...extra } });
+    }
+  }, [data, error, extra, isLoading, reqIdentifier]);
 
   // If we do not use useCallback, every time this component renders, will cause
   // a new reference of filterIngredientsHandler passed on to Search component.
@@ -72,56 +52,38 @@ const Ingredients = () => {
     dispatch({ type: "SET", ingredients: filteredIngredients });
   }, []);
 
-  const addIngredientHandler = useCallback(ingr => {
-    // setIsLoading(true);
-    dispatchHttp({ type: "SEND" });
-    fetch("https://react-hooks-23a01.firebaseio.com/ingredients.json", {
-      method: "POST",
-      body: JSON.stringify(ingr),
-      headers: { "Content-Type": "application/json" }
-    })
-      .then(response => {
-        dispatchHttp({ type: "RESPONSE" });
-        return response.json();
-      })
-      .then(responseData => {
-        // setIngredients(prevIngredients => [
-        //   ...prevIngredients,
-        //   { id: responseData.name, ...ingr } // id is name because of Firebase
-        // ]);
-        dispatch({
-          type: "ADD",
-          ingredient: { id: responseData.name, ...ingr }
-        });
-      })
-      .catch(error => {
-        dispatchHttp({ type: "ERROR", errorMessage: error.message });
-      });
-  }, []);
+  const addIngredientHandler = useCallback(
+    ingr => {
+      sendRequest(
+        `https://react-hooks-23a01.firebaseio.com/ingredients/.json`,
+        "POST",
+        JSON.stringify(ingr),
+        ingr,
+        "ADD_INGREDIENT"
+      );
+    },
+    [sendRequest]
+  );
 
-  const removeIngredientHandler = useCallback(id => {
-    dispatchHttp({ type: "SEND" });
-    fetch(`https://react-hooks-23a01.firebaseio.com/ingredients/${id}.json`, {
-      method: "DELETE"
-    })
-      .then(response => {
-        dispatchHttp({ type: "RESPONSE" });
-        // setIngredients(prevIngredients =>
-        //   // prevIngredients.filter(function(value, index, arr) {
-        //   prevIngredients.filter(function(ingredient) {
-        //     return ingredient.id !== id;
-        //   })
-        // );
-        dispatch({ type: "DELETE", id });
-      })
-      .catch(error => {
-        dispatchHttp({ type: "ERROR", errorMessage: error.message });
-      });
-  }, []);
+  const removeIngredientHandler = useCallback(
+    id => {
+      sendRequest(
+        `https://react-hooks-23a01.firebaseio.com/ingredients/${id}.json`,
+        "DELETE",
+        null,
+        id,
+        "REMOVE_INGREDIENT"
+      );
+      // Now sendRequest is an external dependency, we have to add it here.
+      // Should have useCallback to, so the optimization is valid
+    },
+    [sendRequest]
+  );
 
   const clearError = useCallback(() => {
-    dispatchHttp({ type: "CLEAR" });
-  }, []);
+    // we can pass clear to onClose directly
+    clear();
+  }, [clear]);
 
   const ingredientsList = useMemo(() => {
     return (
@@ -135,13 +97,11 @@ const Ingredients = () => {
 
   return (
     <div className="App">
-      {httpState.error && (
-        <ErrorModal onClose={clearError}>{httpState.error}</ErrorModal>
-      )}
+      {error && <ErrorModal onClose={clearError}>{error}</ErrorModal>}
 
       <IngredientForm
         onAddIngredient={addIngredientHandler}
-        loading={httpState.isLoading}
+        loading={isLoading}
       />
 
       <section>
