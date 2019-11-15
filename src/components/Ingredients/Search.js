@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 
 import Card from "../UI/Card";
+import ErrorModal from "../UI/ErrorModal";
+import useHttp from "../../hooks/http";
+
 import "./Search.css";
 
 const Search = React.memo(props => {
@@ -10,6 +13,7 @@ const Search = React.memo(props => {
   const { onLoadIngredients } = props;
   const [enteredFilter, setEnteredFilter] = useState("");
   const inputRef = useRef();
+  const { isLoading, error, data, sendRequest, clear } = useHttp();
 
   // To search, we can register a function that is executed on each function stroke.
   // On the onChange, a handler that exec setEnteredFilter and also fetch from DB and search.
@@ -26,22 +30,10 @@ const Search = React.memo(props => {
           enteredFilter.length === 0
             ? ""
             : `?orderBy="title"&equalTo="${enteredFilter}"`;
-        fetch(
-          "https://react-hooks-23a01.firebaseio.com/ingredients.json" + query
-        )
-          .then(response => response.json())
-          .then(responseData => {
-            const loadedIngredients = [];
-            for (const key in responseData) {
-              loadedIngredients.push({
-                id: key,
-                title: responseData[key].title,
-                amount: responseData[key].amount
-              });
-            }
-            // After we search, we should pass this info to Ingredients.js, where we show the ingredients.
-            onLoadIngredients(loadedIngredients);
-          });
+        const url =
+          "https://react-hooks-23a01.firebaseio.com/ingredients.json" + query;
+
+        sendRequest(url, "GET");
       }
     }, 1000);
 
@@ -49,7 +41,21 @@ const Search = React.memo(props => {
     return () => {
       clearTimeout(timer);
     };
+  }, [enteredFilter, inputRef, sendRequest]);
 
+  useEffect(() => {
+    if (!isLoading && !error && data) {
+      const loadedIngredients = [];
+      for (const key in data) {
+        loadedIngredients.push({
+          id: key,
+          title: data[key].title,
+          amount: data[key].amount
+        });
+      }
+      // After we search, we should pass this info to Ingredients.js, where we show the ingredients.
+      onLoadIngredients(loadedIngredients);
+    }
     // This will be exec, every time enteredFilter changes.
     // Or when onLoadIngredients changes. It is a function, it can change.. but it should not.
     // BUT.. if we use it like this, every time the component that is providing onLoadIngredients
@@ -57,13 +63,15 @@ const Search = React.memo(props => {
     // and will cause an inifinite loop.
     // The solution is wrap onLoadIngredients with useCallback hook (in the component where it is
     // defined, i.e. Ingredients.js)
-  }, [enteredFilter, onLoadIngredients, inputRef]);
+  }, [data, error, isLoading, onLoadIngredients]);
 
   return (
     <section className="search">
+      {error && <ErrorModal onClose={clear}>{error}</ErrorModal>}
       <Card>
         <div className="search-input">
           <label>Filter by Title</label>
+          {isLoading && <span>Loading...</span>}
           <input
             ref={inputRef}
             type="text"

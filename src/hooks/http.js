@@ -56,7 +56,7 @@ const useHttp = () => {
       body: body,
       headers: { "Content-Type": "application/json" }
     })
-      // We can just retirn sendRequest here, and use .then and .catch in the component
+      // We can just return sendRequest here, and use .then and .catch in the component
       // where we use this hook.
       // Or use it like this, and manage the handling of the response in the component
       // where we use this hook with useEffect, to detect when data is changed and do some thing.
@@ -66,10 +66,8 @@ const useHttp = () => {
         return response.json();
       })
       .then(responseData => {
-        // This can not be done here, it does not belong to the hook
-        // dispatch({ type: "ADD", ...        });
-        // How do we pass data to the component, the response
-        // We cann add a new variable to the hook, another field in the useReducer,
+        // How do we pass data (response) to the component
+        // We can add a new variable to the hook, another field in the useReducer,
         // so we store it in the state of this hook and we can extract it in the component that uses this hook.
         dispatchHttp({ type: "RESPONSE", responseData, extra });
       })
